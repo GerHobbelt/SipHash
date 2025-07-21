@@ -1,17 +1,19 @@
 /*
    SipHash reference C implementation
-   Copyright (c) 2012-2016 Jean-Philippe Aumasson
-   <jeanphilippe.aumasson@gmail.com>
-   Copyright (c) 2012 Daniel J. Bernstein <djb@cr.yp.to>
+   Copyright (c) 2012-2021 Jean-Philippe Aumasson
+   <jeanphilippe.aumasson@gmail.com> Copyright (c) 2012 Daniel J. Bernstein
+   <djb@cr.yp.to>
+
    To the extent possible under law, the author(s) have dedicated all copyright
    and related and neighboring rights to this software to the public domain
    worldwide. This software is distributed without any warranty.
    You should have received a copy of the CC0 Public Domain Dedication along
-   with
-   this software. If not, see
+   with this software. If not, see
    <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
+#include "halfsiphash.h"
+#include "siphash.h"
 #include "vectors.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -25,11 +27,6 @@
     }                                                                          \
     printf("},\n");
 
-int siphash(const unsigned char *in, const size_t inlen, const unsigned char *k,
-            unsigned char *out, const size_t outlen);
-int halfsiphash(const unsigned char *in, const size_t inlen, const unsigned char *k,
-                unsigned char *out, const size_t outlen);
-
 const char *functions[4] = {
     "const unsigned char vectors_sip64[64][8] =",
     "const unsigned char vectors_sip128[64][16] =",
@@ -38,13 +35,15 @@ const char *functions[4] = {
 };
 
 const char *labels[4] = {
-    "SipHash 64-bit tag:", "SipHash 128-bit tag:", "HalfSipHash 32-bit tag:",
-    "HalfSipHash 64-bit tag:",
+    "SipHash-2-4-64",
+    "SipHash-2-4-128",
+    "HalfSipHash-2-4-32",
+    "HalfSipHash-2-4-64",
 };
 
 size_t lengths[4] = {8, 16, 4, 8};
 
-int siphash_test() {
+int siphash_test(void) {
     unsigned char in[64], out[16], k[16];
     int i;
     bool any_failed = false;

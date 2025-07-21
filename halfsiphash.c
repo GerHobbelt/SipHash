@@ -13,18 +13,17 @@
    this software. If not, see
    <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
+#include "halfsiphash.h"
 #include <assert.h>
-#include <inttypes.h>
+#include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <string.h>
 
 /* default: SipHash-2-4 */
 #ifndef cROUNDS
-    #define cROUNDS 2
+#define cROUNDS 2
 #endif
 #ifndef dROUNDS
-    #define dROUNDS 4
+#define dROUNDS 4
 #endif
 
 #define ROTL(x, b) (uint32_t)(((x) << (b)) | ((x) >> (32 - (b))))
@@ -57,32 +56,45 @@
         v2 = ROTL(v2, 16);                                                     \
     } while (0)
 
-#ifdef DEBUG
+
+#ifdef DEBUG_SIPHASH
+#include <stdio.h>
+
 #define TRACE                                                                  \
     do {                                                                       \
-        printf("(%3zu) v0 %08"PRIx32"\n", inlen, v0);                          \
-        printf("(%3zu) v1 %08"PRIx32"\n", inlen, v1);                          \
-        printf("(%3zu) v2 %08"PRIx32"\n", inlen, v2);                          \
-        printf("(%3zu) v3 %08"PRIx32"\n", inlen, v3);                          \
+        printf("(%3zu) v0 %08" PRIx32 "\n", inlen, v0);                        \
+        printf("(%3zu) v1 %08" PRIx32 "\n", inlen, v1);                        \
+        printf("(%3zu) v2 %08" PRIx32 "\n", inlen, v2);                        \
+        printf("(%3zu) v3 %08" PRIx32 "\n", inlen, v3);                        \
     } while (0)
 #else
 #define TRACE
 #endif
 
-int halfsiphash(const unsigned char *in, const size_t inlen,
-                const unsigned char *k, unsigned char *out,
+/*
+    Computes a SipHash value
+    *in: pointer to input data (read-only)
+    inlen: input data length in bytes (any size_t value)
+    *k: pointer to the key data (read-only), must be 8 bytes 
+    *out: pointer to output data (write-only), outlen bytes must be allocated
+    outlen: length of the output in bytes, must be 4 or 8
+*/
+int halfsiphash(const void *in, const size_t inlen, const void *k, uint8_t *out,
                 const size_t outlen) {
+
+    const unsigned char *ni = (const unsigned char *)in;
+    const unsigned char *kk = (const unsigned char *)k;
 
     assert((outlen == 4) || (outlen == 8));
     uint32_t v0 = 0;
     uint32_t v1 = 0;
     uint32_t v2 = UINT32_C(0x6c796765);
     uint32_t v3 = UINT32_C(0x74656462);
-    uint32_t k0 = U8TO32_LE(k);
-    uint32_t k1 = U8TO32_LE(k + 4);
+    uint32_t k0 = U8TO32_LE(kk);
+    uint32_t k1 = U8TO32_LE(kk + 4);
     uint32_t m;
     int i;
-    const unsigned char *end = in + inlen - (inlen % 4);
+    const unsigned char *end = ni + inlen - (inlen % sizeof(uint32_t));
     const int left = inlen & 3;
     uint32_t b = ((uint32_t)inlen) << 24;
     v3 ^= k1;
@@ -93,8 +105,8 @@ int halfsiphash(const unsigned char *in, const size_t inlen,
     if (outlen == 8)
         v1 ^= 0xee;
 
-    for (; in != end; in += 4) {
-        m = U8TO32_LE(in);
+    for (; ni != end; ni += 4) {
+        m = U8TO32_LE(ni);
         v3 ^= m;
 
         TRACE;
@@ -106,11 +118,13 @@ int halfsiphash(const unsigned char *in, const size_t inlen,
 
     switch (left) {
     case 3:
-        b |= ((uint32_t)in[2]) << 16;
+        b |= ((uint32_t)ni[2]) << 16;
+        /* FALLTHRU */
     case 2:
-        b |= ((uint32_t)in[1]) << 8;
+        b |= ((uint32_t)ni[1]) << 8;
+        /* FALLTHRU */
     case 1:
-        b |= ((uint32_t)in[0]);
+        b |= ((uint32_t)ni[0]);
         break;
     case 0:
         break;

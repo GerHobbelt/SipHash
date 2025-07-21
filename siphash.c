@@ -1,7 +1,7 @@
 /*
    SipHash reference C implementation
 
-   Copyright (c) 2012-2016 Jean-Philippe Aumasson
+   Copyright (c) 2012-2022 Jean-Philippe Aumasson
    <jeanphilippe.aumasson@gmail.com>
    Copyright (c) 2012-2014 Daniel J. Bernstein <djb@cr.yp.to>
 
@@ -14,18 +14,18 @@
    this software. If not, see
    <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
+
+#include "siphash.h"
 #include <assert.h>
-#include <inttypes.h>
+#include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <string.h>
 
 /* default: SipHash-2-4 */
 #ifndef cROUNDS
-    #define cROUNDS 2
+#define cROUNDS 2
 #endif
 #ifndef dROUNDS
-    #define dROUNDS 4
+#define dROUNDS 4
 #endif
 
 #define ROTL(x, b) (uint64_t)(((x) << (b)) | ((x) >> (64 - (b))))
@@ -64,31 +64,44 @@
         v2 = ROTL(v2, 32);                                                     \
     } while (0)
 
-#ifdef DEBUG
+#ifdef DEBUG_SIPHASH
+#include <stdio.h>
+
 #define TRACE                                                                  \
     do {                                                                       \
-        printf("(%3zu) v0 %016"PRIx64"\n", inlen, v0);                         \
-        printf("(%3zu) v1 %016"PRIx64"\n", inlen, v1);                         \
-        printf("(%3zu) v2 %016"PRIx64"\n", inlen, v2);                         \
-        printf("(%3zu) v3 %016"PRIx64"\n", inlen, v3);                         \
+        printf("(%3zu) v0 %016" PRIx64 "\n", inlen, v0);                       \
+        printf("(%3zu) v1 %016" PRIx64 "\n", inlen, v1);                       \
+        printf("(%3zu) v2 %016" PRIx64 "\n", inlen, v2);                       \
+        printf("(%3zu) v3 %016" PRIx64 "\n", inlen, v3);                       \
     } while (0)
 #else
 #define TRACE
 #endif
 
-int siphash(const unsigned char *in, const size_t inlen,
-            const unsigned char *k, unsigned char *out, const size_t outlen) {
+/*
+    Computes a SipHash value
+    *in: pointer to input data (read-only)
+    inlen: input data length in bytes (any size_t value)
+    *k: pointer to the key data (read-only), must be 16 bytes 
+    *out: pointer to output data (write-only), outlen bytes must be allocated
+    outlen: length of the output in bytes, must be 8 or 16
+*/
+int siphash(const void *in, const size_t inlen, const void *k, uint8_t *out,
+            const size_t outlen) {
+
+    const unsigned char *ni = (const unsigned char *)in;
+    const unsigned char *kk = (const unsigned char *)k;
 
     assert((outlen == 8) || (outlen == 16));
     uint64_t v0 = UINT64_C(0x736f6d6570736575);
     uint64_t v1 = UINT64_C(0x646f72616e646f6d);
     uint64_t v2 = UINT64_C(0x6c7967656e657261);
     uint64_t v3 = UINT64_C(0x7465646279746573);
-    uint64_t k0 = U8TO64_LE(k);
-    uint64_t k1 = U8TO64_LE(k + 8);
+    uint64_t k0 = U8TO64_LE(kk);
+    uint64_t k1 = U8TO64_LE(kk + 8);
     uint64_t m;
     int i;
-    const unsigned char *end = in + inlen - (inlen % 8);
+    const unsigned char *end = ni + inlen - (inlen % sizeof(uint64_t));
     const int left = inlen & 7;
     uint64_t b = ((uint64_t)inlen) << 56;
     v3 ^= k1;
@@ -99,8 +112,8 @@ int siphash(const unsigned char *in, const size_t inlen,
     if (outlen == 16)
         v1 ^= 0xee;
 
-    for (; in != end; in += 8) {
-        m = U8TO64_LE(in);
+    for (; ni != end; ni += 8) {
+        m = U8TO64_LE(ni);
         v3 ^= m;
 
         TRACE;
@@ -112,19 +125,25 @@ int siphash(const unsigned char *in, const size_t inlen,
 
     switch (left) {
     case 7:
-        b |= ((uint64_t)in[6]) << 48;
+        b |= ((uint64_t)ni[6]) << 48;
+        /* FALLTHRU */
     case 6:
-        b |= ((uint64_t)in[5]) << 40;
+        b |= ((uint64_t)ni[5]) << 40;
+        /* FALLTHRU */
     case 5:
-        b |= ((uint64_t)in[4]) << 32;
+        b |= ((uint64_t)ni[4]) << 32;
+        /* FALLTHRU */
     case 4:
-        b |= ((uint64_t)in[3]) << 24;
+        b |= ((uint64_t)ni[3]) << 24;
+        /* FALLTHRU */
     case 3:
-        b |= ((uint64_t)in[2]) << 16;
+        b |= ((uint64_t)ni[2]) << 16;
+        /* FALLTHRU */
     case 2:
-        b |= ((uint64_t)in[1]) << 8;
+        b |= ((uint64_t)ni[1]) << 8;
+        /* FALLTHRU */
     case 1:
-        b |= ((uint64_t)in[0]);
+        b |= ((uint64_t)ni[0]);
         break;
     case 0:
         break;

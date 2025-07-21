@@ -1,3 +1,5 @@
+#include "siphash/vectors.h"
+
 #include <stdint.h>
 
 const uint8_t vectors_sip64[64][8] = {

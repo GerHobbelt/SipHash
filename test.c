@@ -13,6 +13,8 @@
  */
 
 #include "vectors.h"
+#include "siphash.h"
+#include "halfsiphash.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -25,25 +27,21 @@
     }                                                                          \
     printf("},\n");
 
-int siphash(const uint8_t *in, const size_t inlen, const uint8_t *k,
-            uint8_t *out, const size_t outlen);
-int halfsiphash(const unsigned char *in, const size_t inlen,
-                const unsigned char *k, unsigned char *out,
-                const size_t outlen);
-
-const char *functions[4] = {
+#ifdef GETVECTORS
+static const char *functions[4] = {
     "const uint8_t vectors_sip64[64][8] =",
     "const uint8_t vectors_sip128[64][16] =",
     "const uint8_t vectors_hsip32[64][4] =",
     "const uint8_t vectors_hsip64[64][8] =",
 };
-
-const char *labels[4] = {
+#else
+static const char *labels[4] = {
     "SipHash 64-bit tag:", "SipHash 128-bit tag:", "HalfSipHash 32-bit tag:",
     "HalfSipHash 64-bit tag:",
 };
+#endif
 
-size_t lengths[4] = {8, 16, 4, 8};
+static size_t lengths[4] = {8, 16, 4, 8};
 
 int siphash_test() {
     uint8_t in[64], out[16], k[16];

@@ -16,6 +16,7 @@
 #include "halfsiphash.h"
 #include <assert.h>
 #include <stddef.h>
+#include <limits.h>
 #include <stdint.h>
 
 /* default: SipHash-2-4 */
@@ -85,27 +86,27 @@ int halfsiphash(const void *in, const size_t inlen, const void *k, uint8_t *out,
     const unsigned char *ni = (const unsigned char *)in;
     const unsigned char *kk = (const unsigned char *)k;
 
-    assert((outlen == 4) || (outlen == 8));
+    assert((outlen == sizeof(uint32_t)) || (outlen == sizeof(uint64_t)));
     uint32_t v0 = 0;
     uint32_t v1 = 0;
     uint32_t v2 = UINT32_C(0x6c796765);
     uint32_t v3 = UINT32_C(0x74656462);
     uint32_t k0 = U8TO32_LE(kk);
-    uint32_t k1 = U8TO32_LE(kk + 4);
+    uint32_t k1 = U8TO32_LE(kk + sizeof(uint32_t));
     uint32_t m;
     int i;
     const unsigned char *end = ni + inlen - (inlen % sizeof(uint32_t));
-    const int left = inlen & 3;
-    uint32_t b = ((uint32_t)inlen) << 24;
+    const int left = inlen & (sizeof(uint32_t) - 1);
+    uint32_t b = ((uint32_t)(inlen * (CHAR_BIT / 8))) << 24;
     v3 ^= k1;
     v2 ^= k0;
     v1 ^= k1;
     v0 ^= k0;
 
-    if (outlen == 8)
+    if (outlen == sizeof(uint64_t))
         v1 ^= 0xee;
 
-    for (; ni != end; ni += 4) {
+    for (; ni != end; ni += sizeof(uint32_t)) {
         m = U8TO32_LE(ni);
         v3 ^= m;
 
@@ -138,7 +139,7 @@ int halfsiphash(const void *in, const size_t inlen, const void *k, uint8_t *out,
 
     v0 ^= b;
 
-    if (outlen == 8)
+    if (outlen == sizeof(uint64_t))
         v2 ^= 0xee;
     else
         v2 ^= 0xff;
@@ -150,7 +151,7 @@ int halfsiphash(const void *in, const size_t inlen, const void *k, uint8_t *out,
     b = v1 ^ v3;
     U32TO8_LE(out, b);
 
-    if (outlen == 4)
+    if (outlen == sizeof(uint32_t))
         return 0;
 
     v1 ^= 0xdd;
@@ -160,7 +161,7 @@ int halfsiphash(const void *in, const size_t inlen, const void *k, uint8_t *out,
         SIPROUND;
 
     b = v1 ^ v3;
-    U32TO8_LE(out + 4, b);
+    U32TO8_LE(out + sizeof(uint32_t), b);
 
     return 0;
 }
